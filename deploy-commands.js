@@ -1,38 +1,32 @@
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 const config = require('./config');
 
-const command = new SlashCommandBuilder()
+const sessionstatsCommand = new SlashCommandBuilder()
   .setName('sessionstats')
   .setDescription('Post the current game session statistics.')
   .setDMPermission(false)
   .addStringOption(option =>
     option
+      .setName('server-id')
+      .setDescription('ERLC Server ID to fetch statistics from')
+      .setRequired(true)
+  )
+  .addStringOption(option =>
+    option
       .setName('server-name')
-      .setDescription('Displayed server name')
+      .setDescription('Override displayed server name')
       .setMaxLength(100)
   )
   .addStringOption(option =>
     option
       .setName('server-code')
-      .setDescription('Displayed server code')
+      .setDescription('Override displayed server code')
       .setMaxLength(100)
-  )
-  .addIntegerOption(option =>
-    option
-      .setName('players')
-      .setDescription('Current player count')
-      .setMinValue(0)
-  )
-  .addIntegerOption(option =>
-    option
-      .setName('max-players')
-      .setDescription('Maximum player count')
-      .setMinValue(1)
   )
   .addStringOption(option =>
     option
       .setName('quick-join-url')
-      .setDescription('URL used by the Quick Join button')
+      .setDescription('Override Quick Join URL')
   )
   .addIntegerOption(option =>
     option
@@ -42,15 +36,34 @@ const command = new SlashCommandBuilder()
       .setMaxValue(100)
   );
 
+const sessionvoteCommand = new SlashCommandBuilder()
+  .setName('sessionvote')
+  .setDescription('Start a session vote in the configured channel.')
+  .setDMPermission(false)
+  .addStringOption(option =>
+    option
+      .setName('title')
+      .setDescription('Title for the session vote')
+      .setRequired(true)
+      .setMaxLength(100)
+  )
+  .addStringOption(option =>
+    option
+      .setName('description')
+      .setDescription('Description for the session vote')
+      .setRequired(true)
+      .setMaxLength(500)
+  );
+
 async function deploy() {
   const rest = new REST({ version: '10' }).setToken(config.token);
 
-  console.log('Registering /sessionstats...');
+  console.log('Registering commands...');
   await rest.put(
     Routes.applicationGuildCommands(config.clientId, config.guildId),
-    { body: [command.toJSON()] }
+    { body: [sessionstatsCommand.toJSON(), sessionvoteCommand.toJSON()] }
   );
-  console.log('Command registered.');
+  console.log('Commands registered.');
 }
 
 deploy().catch(error => {
