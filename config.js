@@ -15,7 +15,18 @@ module.exports = {
   allowedRoleId: 'PUT_ALLOWED_ROLE_ID_HERE',
 
   // Only members with this role can manage infractions & promos
-  ManagementRoleID: 'ROLEIDHERE'
+  ManagementRoleID: 'ROLEIDHERE',
+
+  // Role IDs immune to infractions and promos (cannot be demoted/infracted)
+  immuneRoleIds: ['IMMUNE_ROLE_ID_HERE'],
+
+  // Configurable ranks for /promo command (rank name -> Discord role ID)
+  ranks: {
+    'Officer': 'OFFICER_ROLE_ID_HERE',
+    'Moderator': 'MODERATOR_ROLE_ID_HERE',
+    'Admin': 'ADMIN_ROLE_ID_HERE',
+    'Senior Admin': 'SENIOR_ADMIN_ROLE_ID_HERE'
+  },
 
   // /sessionvote posts in this channel (Sessions channel for example)
   sessionVoteChannelId: 'PUT_SESSION_VOTE_CHANNEL_ID_HERE',
