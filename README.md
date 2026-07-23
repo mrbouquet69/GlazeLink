@@ -37,6 +37,7 @@ npm start
 
 ```text
 /sessionstats
+/sessionvote
 ```
 
 All command options are optional. Values omitted from the command use the defaults in `config.js`.
@@ -44,7 +45,3 @@ All command options are optional. Values omitted from the command use the defaul
 Only members with `allowedRoleId` can run the command. The resulting embed is always posted in `sessionChannelId`, regardless of where the command is run.
 
 The Vote button toggles the current user's vote. View Voters responds privately with the voter list. Votes are saved in `sessions.json` so they survive bot restarts.
-
-## Security
-
-Do not publish `config.js` while it contains a real bot token. Reset the token immediately if it is exposed.
