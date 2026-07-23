@@ -14,13 +14,9 @@ module.exports = {
   // Only members with this role can run /sessionstats
   allowedRoleId: 'PUT_ALLOWED_ROLE_ID_HERE',
 
-  // Default values used when command options are omitted
-  defaults: {
-    serverName: 'Name',
-    serverCode: 'Code',
-    playerCount: 0,
-    maxPlayers: 50,
-    quickJoinUrl: 'https://discohook.app',
-    votesRequired: 10
+  // ERLC API Configuration
+  erlc: {
+    apiBaseUrl: 'https://api.erlc.cc/v1',
+    apiKey: 'PUT_ERLC_API_KEY_HERE'
   }
 };
