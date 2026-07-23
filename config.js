@@ -14,6 +14,12 @@ module.exports = {
   // Only members with this role can run /sessionstats
   allowedRoleId: 'PUT_ALLOWED_ROLE_ID_HERE',
 
+  // /sessionvote posts in this channel
+  sessionVoteChannelId: 'PUT_SESSION_VOTE_CHANNEL_ID_HERE',
+
+  // Number of reactions required to start a session
+  requiredVotes: 15,
+
   // ERLC API Configuration
   erlc: {
     apiBaseUrl: 'https://api.erlc.cc/v1',
