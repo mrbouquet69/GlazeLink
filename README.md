@@ -1,5 +1,4 @@
-# Session Stats Discord Bot
-
+# ERLC Private server bot
 ## Requirements
 
 - Node.js 18 or newer
