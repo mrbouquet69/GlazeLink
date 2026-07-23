@@ -14,6 +14,9 @@ module.exports = {
   // Only members with this role can run /sessionstats
   allowedRoleId: 'PUT_ALLOWED_ROLE_ID_HERE',
 
+  // Only members with this role can manage infractions & promos
+  ManagementRoleID: 'ROLEIDHERE'
+
   // /sessionvote posts in this channel (Sessions channel for example)
   sessionVoteChannelId: 'PUT_SESSION_VOTE_CHANNEL_ID_HERE',
 
