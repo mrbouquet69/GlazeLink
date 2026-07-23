@@ -13,7 +13,7 @@ const {
 const config = require('./config');
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.DirectMessages, GatewayIntentBits.GuildMembers]
 });
 
 const DATA_FILE = path.join(__dirname, 'sessions.json');
@@ -94,6 +94,15 @@ function buildButtons(sessionId, session) {
 
 function hasAllowedRole(interaction) {
   return interaction.member?.roles?.cache?.has(config.allowedRoleId) ?? false;
+}
+
+function hasManagementRole(interaction) {
+  return interaction.member?.roles?.cache?.has(config.ManagementRoleID) ?? false;
+}
+
+function isRoleImmune(member) {
+  if (!member?.roles) return false;
+  return config.immuneRoleIds.some(roleId => member.roles.cache.has(roleId));
 }
 
 async function fetchServerInfo(serverId) {
@@ -252,6 +261,119 @@ client.on(Events.InteractionCreate, async interaction => {
       await startSessionRefresh(sessionId, session);
 
       return interaction.reply({ content: `Session stats posted in <#${channel.id}>. Player count and queue will update every 30 seconds.`, ephemeral: true });
+    }
+
+    // /promo command
+    if (interaction.isChatInputCommand() && interaction.commandName === 'promo') {
+      if (!interaction.inGuild()) {
+        return interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+      }
+
+      if (!hasManagementRole(interaction)) {
+        return interaction.reply({ content: 'Error | You do not have the required role to use this command.', ephemeral: true });
+      }
+
+      const action = interaction.options.getSubcommand();
+      const targetUser = interaction.options.getUser('user');
+      const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+
+      if (!targetMember) {
+        return interaction.reply({ content: 'Could not find the target user in this server.', ephemeral: true });
+      }
+
+      if (isRoleImmune(targetMember)) {
+        return interaction.reply({ content: 'This user is immune to promos.', ephemeral: true });
+      }
+
+      const reason = interaction.options.getString('reason');
+      const notes = interaction.options.getString('notes') || 'None';
+
+      if (action === 'give') {
+        const newRankName = interaction.options.getString('rank');
+        const rankRoleId = config.ranks[newRankName];
+
+        if (!rankRoleId) {
+          return interaction.reply({ content: `Invalid rank. Available ranks: ${Object.keys(config.ranks).join(', ')}`, ephemeral: true });
+        }
+
+        try {
+          const role = await interaction.guild.roles.fetch(rankRoleId);
+          if (!role) {
+            return interaction.reply({ content: 'The rank role does not exist in this server.', ephemeral: true });
+          }
+
+          await targetMember.roles.add(rankRoleId);
+
+          // Send DM to user
+          const promoEmbed = new EmbedBuilder()
+            .setColor(3447003)
+            .setTitle('**🎉 | Promotion Notice**')
+            .setDescription(`Congrats you have received a Promotion for ${reason}\nYour new rank is: ${newRankName}\n\nNotes: ${notes}\n\n-# Auth: ${interaction.user.username}`);
+
+          await targetUser.send({ embeds: [promoEmbed] }).catch(() => {});
+
+          return interaction.reply({ content: `✅ Promoted ${targetUser.tag} to ${newRankName}`, ephemeral: true });
+        } catch (error) {
+          console.error('Error promoting user:', error);
+          return interaction.reply({ content: 'An error occurred while promoting the user.', ephemeral: true });
+        }
+      } else if (action === 'revoke') {
+        const rankName = interaction.options.getString('rank');
+        const rankRoleId = config.ranks[rankName];
+
+        if (!rankRoleId) {
+          return interaction.reply({ content: `Invalid rank. Available ranks: ${Object.keys(config.ranks).join(', ')}`, ephemeral: true });
+        }
+
+        try {
+          await targetMember.roles.remove(rankRoleId);
+          return interaction.reply({ content: `✅ Revoked ${rankName} from ${targetUser.tag}`, ephemeral: true });
+        } catch (error) {
+          console.error('Error revoking promotion:', error);
+          return interaction.reply({ content: 'An error occurred while revoking the promotion.', ephemeral: true });
+        }
+      }
+    }
+
+    // /infract command
+    if (interaction.isChatInputCommand() && interaction.commandName === 'infract') {
+      if (!interaction.inGuild()) {
+        return interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+      }
+
+      if (!hasManagementRole(interaction)) {
+        return interaction.reply({ content: 'Error | You do not have the required role to use this command.', ephemeral: true });
+      }
+
+      const action = interaction.options.getSubcommand();
+      const targetUser = interaction.options.getUser('user');
+      const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+
+      if (!targetMember) {
+        return interaction.reply({ content: 'Could not find the target user in this server.', ephemeral: true });
+      }
+
+      if (isRoleImmune(targetMember)) {
+        return interaction.reply({ content: 'This user is immune to infractions.', ephemeral: true });
+      }
+
+      const type = interaction.options.getString('type');
+      const reason = interaction.options.getString('reason');
+      const notes = interaction.options.getString('notes') || 'None';
+
+      if (action === 'give') {
+        // Send DM to user
+        const infractionEmbed = new EmbedBuilder()
+          .setColor(3447003)
+          .setTitle('**⚠️ | Infraction Notice**')
+          .setDescription(`You are receiving an infraction (Type: ${type}) for ${reason}\n\nNotes: ${notes}\n\n-# Auth: ${interaction.user.username}`);
+
+        await targetUser.send({ embeds: [infractionEmbed] }).catch(() => {});
+
+        return interaction.reply({ content: `✅ Infraction (${type}) given to ${targetUser.tag} for: ${reason}`, ephemeral: true });
+      } else if (action === 'revoke') {
+        return interaction.reply({ content: `✅ Revoked infraction from ${targetUser.tag}`, ephemeral: true });
+      }
     }
 
     if (!interaction.isButton()) return;
