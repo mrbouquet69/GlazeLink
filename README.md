@@ -37,6 +37,10 @@ npm start
 ```text
 /sessionstats
 /sessionvote
+/promo give
+/promo revoke
+/infract give
+/infract revoke
 ```
 
 All command options are optional. Values omitted from the command use the defaults in `config.js`.
