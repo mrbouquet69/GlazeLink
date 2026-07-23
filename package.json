@@ -1,0 +1,14 @@
+{
+  "name": "sessionstats-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord bot that posts session statistics with voting buttons.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "deploy": "node deploy-commands.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0"
+  }
+}
