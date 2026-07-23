@@ -88,6 +88,33 @@ function hasAllowedRole(interaction) {
   return interaction.member?.roles?.cache?.has(config.allowedRoleId) ?? false;
 }
 
+async function fetchServerInfo(serverId) {
+  try {
+    const response = await fetch(`${config.erlc.apiBaseUrl}/servers/${serverId}`, {
+      headers: {
+        'Authorization': config.erlc.apiKey
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`ERLC API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return {
+      serverName: data.name || 'Unknown Server',
+      serverCode: data.code || 'N/A',
+      playerCount: data.players || 0,
+      maxPlayers: data.max_players || 50,
+      quickJoinUrl: data.quick_join_url || 'https://discohook.app'
+    };
+  } catch (error) {
+    console.error('Error fetching server info from ERLC API:', error);
+    return null;
+  }
+}
+
 client.once(Events.ClientReady, readyClient => {
   console.log(`Logged in as ${readyClient.user.tag}`);
 });
@@ -114,12 +141,25 @@ client.on(Events.InteractionCreate, async interaction => {
         return interaction.reply({ content: 'The bot needs View Channel, Send Messages, and Embed Links permissions in the configured channel.', ephemeral: true });
       }
 
-      const serverName = interaction.options.getString('server-name') ?? config.defaults.serverName;
-      const serverCode = interaction.options.getString('server-code') ?? config.defaults.serverCode;
-      const playerCount = interaction.options.getInteger('players') ?? config.defaults.playerCount;
-      const maxPlayers = interaction.options.getInteger('max-players') ?? config.defaults.maxPlayers;
-      const quickJoinUrl = interaction.options.getString('quick-join-url') ?? config.defaults.quickJoinUrl;
-      const votesRequired = interaction.options.getInteger('votes-required') ?? config.defaults.votesRequired;
+      // Get server ID from command options or return error
+      const serverId = interaction.options.getString('server-id');
+      if (!serverId) {
+        return interaction.reply({ content: 'Server ID is required.', ephemeral: true });
+      }
+
+      // Fetch server info from ERLC API
+      const serverInfo = await fetchServerInfo(serverId);
+      if (!serverInfo) {
+        return interaction.reply({ content: 'Could not fetch server information from ERLC API. Please check the server ID and try again.', ephemeral: true });
+      }
+
+      // Get optional overrides from command options
+      const serverName = interaction.options.getString('server-name') ?? serverInfo.serverName;
+      const serverCode = interaction.options.getString('server-code') ?? serverInfo.serverCode;
+      const playerCount = interaction.options.getInteger('players') ?? serverInfo.playerCount;
+      const maxPlayers = interaction.options.getInteger('max-players') ?? serverInfo.maxPlayers;
+      const quickJoinUrl = interaction.options.getString('quick-join-url') ?? serverInfo.quickJoinUrl;
+      const votesRequired = interaction.options.getInteger('votes-required') ?? 10;
 
       if (playerCount > maxPlayers) {
         return interaction.reply({ content: 'The current player count cannot be greater than the maximum player count.', ephemeral: true });
@@ -137,6 +177,7 @@ client.on(Events.InteractionCreate, async interaction => {
         guildId: interaction.guildId,
         channelId: channel.id,
         messageId: null,
+        serverId,
         serverName,
         serverCode,
         playerCount,
