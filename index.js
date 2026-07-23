@@ -19,6 +19,9 @@ const client = new Client({
 const DATA_FILE = path.join(__dirname, 'sessions.json');
 let sessions = loadSessions();
 
+// Map to store refresh intervals for active sessions
+const sessionRefreshIntervals = new Map();
+
 function loadSessions() {
   try {
     if (!fs.existsSync(DATA_FILE)) return {};
@@ -59,6 +62,11 @@ function buildEmbed(session) {
       {
         name: '**👤 | Player Count**',
         value: codeBlock(`${session.playerCount}/${session.maxPlayers}`),
+        inline: false
+      },
+      {
+        name: '**⏳ | Queue**',
+        value: codeBlock(`${session.queueSize}`),
         inline: false
       }
     );
@@ -107,6 +115,7 @@ async function fetchServerInfo(serverId) {
       serverCode: data.code || 'N/A',
       playerCount: data.players || 0,
       maxPlayers: data.max_players || 50,
+      queueSize: data.queue_size || 0,
       quickJoinUrl: data.quick_join_url || 'https://discohook.app'
     };
   } catch (error) {
@@ -115,8 +124,55 @@ async function fetchServerInfo(serverId) {
   }
 }
 
+async function updateSessionMessage(sessionId, session) {
+  try {
+    const guild = await client.guilds.fetch(session.guildId);
+    const channel = await guild.channels.fetch(session.channelId);
+    const message = await channel.messages.fetch(session.messageId);
+
+    await message.edit({
+      embeds: [buildEmbed(session)],
+      components: [buildButtons(sessionId, session)]
+    });
+  } catch (error) {
+    console.error(`Error updating session message ${sessionId}:`, error);
+  }
+}
+
+async function startSessionRefresh(sessionId, session) {
+  // Clear any existing interval
+  if (sessionRefreshIntervals.has(sessionId)) {
+    clearInterval(sessionRefreshIntervals.get(sessionId));
+  }
+
+  // Set up auto-refresh every 30 seconds
+  const interval = setInterval(async () => {
+    const serverInfo = await fetchServerInfo(session.serverId);
+    if (serverInfo) {
+      session.playerCount = serverInfo.playerCount;
+      session.queueSize = serverInfo.queueSize;
+      saveSessions();
+      await updateSessionMessage(sessionId, session);
+    }
+  }, 30000); // Update every 30 seconds
+
+  sessionRefreshIntervals.set(sessionId, interval);
+}
+
+function stopSessionRefresh(sessionId) {
+  if (sessionRefreshIntervals.has(sessionId)) {
+    clearInterval(sessionRefreshIntervals.get(sessionId));
+    sessionRefreshIntervals.delete(sessionId);
+  }
+}
+
 client.once(Events.ClientReady, readyClient => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+
+  // Resume refresh intervals for all existing sessions
+  for (const [sessionId, session] of Object.entries(sessions)) {
+    startSessionRefresh(sessionId, session);
+  }
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -156,14 +212,8 @@ client.on(Events.InteractionCreate, async interaction => {
       // Get optional overrides from command options
       const serverName = interaction.options.getString('server-name') ?? serverInfo.serverName;
       const serverCode = interaction.options.getString('server-code') ?? serverInfo.serverCode;
-      const playerCount = interaction.options.getInteger('players') ?? serverInfo.playerCount;
-      const maxPlayers = interaction.options.getInteger('max-players') ?? serverInfo.maxPlayers;
       const quickJoinUrl = interaction.options.getString('quick-join-url') ?? serverInfo.quickJoinUrl;
       const votesRequired = interaction.options.getInteger('votes-required') ?? 10;
-
-      if (playerCount > maxPlayers) {
-        return interaction.reply({ content: 'The current player count cannot be greater than the maximum player count.', ephemeral: true });
-      }
 
       try {
         new URL(quickJoinUrl);
@@ -180,8 +230,9 @@ client.on(Events.InteractionCreate, async interaction => {
         serverId,
         serverName,
         serverCode,
-        playerCount,
-        maxPlayers,
+        playerCount: serverInfo.playerCount,
+        maxPlayers: serverInfo.maxPlayers,
+        queueSize: serverInfo.queueSize,
         quickJoinUrl,
         votesRequired,
         voters: [],
@@ -197,7 +248,10 @@ client.on(Events.InteractionCreate, async interaction => {
       sessions[sessionId] = session;
       saveSessions();
 
-      return interaction.reply({ content: `Session stats posted in <#${channel.id}>.`, ephemeral: true });
+      // Start auto-refresh for this session
+      await startSessionRefresh(sessionId, session);
+
+      return interaction.reply({ content: `Session stats posted in <#${channel.id}>. Player count and queue will update every 30 seconds.`, ephemeral: true });
     }
 
     if (!interaction.isButton()) return;
